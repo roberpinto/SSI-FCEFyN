@@ -1,0 +1,110 @@
+%SSI of Pile group.
+%Rigid head.
+%%Pending to be developed.
+%%Roberto E Pinto Villegas
+%%First version 8 Feb 2020.
+%%Last edit 8 Feb 2020.
+
+%Data
+E=30000
+d=0.4
+R=d/2
+L=20
+nu=0.2
+Sx=1.5
+Sy=1
+Gz=10
+i=-1/3
+H=0.150
+alpha=atan(i)
+
+%Stiffness
+%Axial Stiffness
+Gz0=Gz*0*L
+GzL=Gz*L
+GzProm=(Gz0+GzL)/2
+Rs=GzProm/GzL
+Bf=GzL/GzL
+xi=log((0.25+(2.5*Rs*(1-nu)-0.25)*Bf)*L/R)
+lambda=E/GzL
+muL=sqrt(2/xi/lambda)*L/R
+kzz=R*GzL*((4/(1-nu)/Bf)+2*pi/xi*Rs*(tanh(muL)/muL)*L/R)...
+    /(1+(4/(1-nu)/Bf*(1/lambda/pi)*(tanh(muL)/muL)*L/R))
+
+%Lateral Stiffness
+%%Insert an for and if functions for the convergence
+Lci=8*d
+Lc=2.905 %%input('Enter an aproximated value: ')
+Gc=Gz*Lc
+Gc2=Gz*0.5*Lc
+Gc4=Gz*0.25*Lc
+rhoc=Gc4/Gc2
+Lch=2*R*(E/Gc)^(2/7)
+
+
+Kxthetay=rhoc*Gc/(12*sqrt(rhoc)-5)/((E/Gc)^(1/7))*...
+    [400/9*sqrt(rhoc)*Lc/2 -50/3*Lc^2/4;-50/3*Lc^2/4 15*Lc^3/8]
+
+%Torsional Stiffness
+Kthetazthetaz=0
+
+%Stiffness matrix for vertical piles
+Kp=[Kxthetay(1,1) 0 0 0 Kxthetay(1,2) 0;...
+    0 Kxthetay(1,1) 0 Kxthetay(1,2) 0 0;...
+    0 0 kzz 0 0 0;...
+    0 Kxthetay(2,1) 0 Kxthetay(2,2) 0 0;...
+    Kxthetay(2,1) 0 0 0 Kxthetay(2,2) 0;...
+    0 0 0 0 0 Kthetazthetaz]
+
+%Stiffness matrix for inclined piles
+%%Identify the inclined piles and do the calculations for that.
+Rt=[cos(alpha) 0 -sin(alpha) 0 0 0;...
+    0 1 0 0 0 0;...
+    sin(alpha) 0 cos(alpha) 0 0 0;...
+    0 0 0 cos(alpha) 0 -sin(alpha);...
+    0 0 0 0 1 0;...
+    0 0 0 sin(alpha) 0 cos(alpha)]
+
+Kpi=Rt'*Kp*Rt
+
+%Stiffness matrix for each pile.
+K1=Kpi
+K2=Kp
+K3=Kpi
+K4=Kp
+
+%Global stiffness piles matrix
+%Transformation matrix from local piles coordinates to global piles head
+%coordinates.
+
+%Piles coordinates.
+Coord=[Sx/2 Sy/2;-Sx/2 Sy/2;Sx/2 -Sy/2;-Sx/2 -Sy/2]
+B=cell(size(Coord,1),1)
+for xx=1:size(Coord,1)
+    B{xx}=[1 0 0 0 0 -Coord(xx,2);...
+          0 1 0 0 0 Coord(xx,1);...
+          0 0 1 Coord(xx,2) -Coord(xx,1) 0;...
+          0 0 0 1 0 0;...
+          0 0 0 0 1 0;...
+          0 0 0 0 0 1]
+end
+
+KG1=B{1}'*K1*B{1}
+KG2=B{2}'*K2*B{2}
+KG3=B{3}'*K3*B{3}
+KG4=B{4}'*K4*B{4}
+
+%Group pile stiffness matrix
+KG=KG1+KG2+KG3+KG4
+
+%Load vector in the pile head
+F=[H;0;0;0;0;0]
+
+%Displacements vector at pile head
+Ug=inv(KG)*F
+
+%Load at each pile in the group
+F1=K1*B{1}*Ug
+F2=K2*B{2}*Ug
+F3=K3*B{3}*Ug
+F4=K4*B{4}*Ug
